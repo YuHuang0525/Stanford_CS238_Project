@@ -5,6 +5,7 @@ import networkx as nx
 import numpy as np
 import csv
 import time
+import random
 from scipy.special import gammaln
 
 def write_gph(dag, idx2names, filename):
@@ -114,7 +115,7 @@ def compute(infile, outfile):
 
 
 class K2Search:
-    def __init__(self, ordering):
+    def __init__(self, ordering=None):
         self.ordering = ordering
 
 def K2fit(method, vars, D):
@@ -148,8 +149,34 @@ def K2fit(method, vars, D):
 
     return G
 
+class LocalDirectedGraphSearch:
+    def __init__(self, G=None, k_max=None):
+        self.G = G
+        self.k_max = k_max
 
-def findBestG(infile, outfile):
+def rand_graph_neighbor(G):
+    n = G.number_of_nodes()
+    i = random.randint(0, n - 1)
+    j = (i + random.randint(1, n - 1)) % n
+    G_copy = G.copy()
+    if G_copy.has_edge(i, j):
+        G_copy.remove_edge(i, j)
+    else:
+        G_copy.add_edge(i, j)
+    return G_copy
+
+def LocalSearch_fit(method, vars, D):
+    G = method.G
+    y = bayesian_score(vars, G, D)
+    for k in range(1, method.k_max + 1):
+        G_prime = rand_graph_neighbor(G)
+        if nx.is_directed_acyclic_graph(G_prime):
+            y_prime = bayesian_score(vars, G_prime, D)
+            if y_prime > y:
+                y, G = y_prime, G_prime
+    return G
+
+def findBestG(method, infile, outfile):
 
     # build the variable list and read data from infile.csv
     # read the variables and data from csv file
@@ -178,14 +205,33 @@ def findBestG(infile, outfile):
         vars = [{"symbol": key, "r": max_values[idx]} for idx, key in enumerate(variables)] 
 
     # specify the structure algorithm and find the best Graph
-    test_ordering = [i for i in range(len(vars))]
-    test_K2Search = K2Search(test_ordering)
-    test_G = K2fit(test_K2Search, vars, D)
+    
+    # K2 algorithm method
+    if isinstance(method, K2Search):
+        test_ordering = [i for i in range(len(vars))]
+        test_K2Search = K2Search(test_ordering)
+        test_G = K2fit(test_K2Search, vars, D)
+    
+    # LocalSearch algorithm method
+    elif isinstance(method, LocalDirectedGraphSearch):
+        pre_G_name = input("Which Graph do you want to do the local search on?[Enter file name with .gph]: ")
+        pre_G = nx.DiGraph()
+        # read nodes from .gph file and add to graph
+        with open(pre_G_name, "r") as file:
+            for line in file:
+                parent, child = line.strip().split(",")
+                pre_G.add_edge(names2idx[parent], names2idx[child])
+        
+        method.G = pre_G
+        method.k_max = int(input("Enter the number of iterations for each local node, i.e k_max: "))
+        test_G = LocalSearch_fit(method, vars, D)
 
     # write the best graph to .gph outfile
     write_gph(test_G, idx2names, outfile)
     
     return test_G
+
+
     
     
 
@@ -195,15 +241,31 @@ def main():
 
     inputfilename = sys.argv[1]
     outputfilename = sys.argv[2]
+    # start = time.time()
     # print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
+    # end = time.time()
+    # print("Execution time: " + str(round(end - start, 2)) + " s")
+
+    # using k2 algorithm
+
+    # print("\nFinding the best graph...\n")
+    # start = time.time()
+    # findBestG(K2Search(), inputfilename, outputfilename)
+    # end = time.time()
+    # print("Algorithm completed!\n")
+    # print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
+    # print("Execution time: " + str(round(end - start, 2)) + " s")
+
+    # using localsearch algorithm
     
     print("\nFinding the best graph...\n")
     start = time.time()
-    findBestG(inputfilename, outputfilename)
+    findBestG(LocalDirectedGraphSearch(), inputfilename, outputfilename)
     end = time.time()
     print("Algorithm completed!\n")
     print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
     print("Execution time: " + str(round(end - start, 2)) + " s")
+
 
 if __name__ == '__main__':
     main()
