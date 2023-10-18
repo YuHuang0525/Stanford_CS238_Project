@@ -6,6 +6,7 @@ import numpy as np
 import csv
 import time
 import random
+from tqdm import tqdm
 from scipy.special import gammaln
 
 def write_gph(dag, idx2names, filename):
@@ -123,7 +124,7 @@ def K2fit(method, vars, D):
     num_vars = len(vars)
     G.add_nodes_from(range(num_vars))
     
-    for k in range(1, num_vars):
+    for k in tqdm(range(1, num_vars), desc="Processing"):
         i = method.ordering[k]
 
         y = bayesian_score(vars, G, D)
@@ -168,7 +169,7 @@ def rand_graph_neighbor(G):
 def LocalSearch_fit(method, vars, D):
     G = method.G
     y = bayesian_score(vars, G, D)
-    for k in range(1, method.k_max + 1):
+    for k in tqdm(range(1, method.k_max+1), desc="Processing"):
         G_prime = rand_graph_neighbor(G)
         if nx.is_directed_acyclic_graph(G_prime):
             y_prime = bayesian_score(vars, G_prime, D)
@@ -210,7 +211,12 @@ def findBestG(method, infile, outfile):
     if isinstance(method, K2Search):
         test_ordering = [i for i in range(len(vars))]
         test_K2Search = K2Search(test_ordering)
+        print("\nFinding the best graph...\n")
+        start = time.time()
         test_G = K2fit(test_K2Search, vars, D)
+        end = time.time()
+        print("Algorithm completed!\n")
+        print("Execution time: " + str(round(end - start, 2)) + " s")
     
     # LocalSearch algorithm method
     elif isinstance(method, LocalDirectedGraphSearch):
@@ -224,7 +230,13 @@ def findBestG(method, infile, outfile):
         
         method.G = pre_G
         method.k_max = int(input("Enter the number of iterations for each local node, i.e k_max: "))
+
+        print("\nFinding the best graph...\n")
+        start = time.time()
         test_G = LocalSearch_fit(method, vars, D)
+        end = time.time()
+        print("Algorithm completed!\n")
+        print("Execution time: " + str(round(end - start, 2)) + " s")
 
     # write the best graph to .gph outfile
     write_gph(test_G, idx2names, outfile)
@@ -248,23 +260,13 @@ def main():
 
     # using k2 algorithm
 
-    # print("\nFinding the best graph...\n")
-    # start = time.time()
     # findBestG(K2Search(), inputfilename, outputfilename)
-    # end = time.time()
-    # print("Algorithm completed!\n")
     # print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
-    # print("Execution time: " + str(round(end - start, 2)) + " s")
 
     # using localsearch algorithm
-    
-    print("\nFinding the best graph...\n")
-    start = time.time()
+
     findBestG(LocalDirectedGraphSearch(), inputfilename, outputfilename)
-    end = time.time()
-    print("Algorithm completed!\n")
     print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
-    print("Execution time: " + str(round(end - start, 2)) + " s")
 
 
 if __name__ == '__main__':

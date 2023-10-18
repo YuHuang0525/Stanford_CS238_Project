@@ -1,5 +1,6 @@
 age,numparentschildren
 age,passengerclass
+age,sex
 numparentschildren,sex
 numparentschildren,numsiblings
 passengerclass,sex
@@ -8,4 +9,5 @@ portembarked,passengerclass
 portembarked,sex
 sex,survived
 fare,passengerclass
-survived,numsiblings
+numsiblings,sex
+numsiblings,portembarked
