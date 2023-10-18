@@ -4,6 +4,7 @@ import networkx as nx
 
 import numpy as np
 import csv
+import time
 from scipy.special import gammaln
 
 def write_gph(dag, idx2names, filename):
@@ -197,10 +198,12 @@ def main():
     # print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
     
     print("\nFinding the best graph...\n")
+    start = time.time()
     findBestG(inputfilename, outputfilename)
+    end = time.time()
     print("Algorithm completed!\n")
     print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
-
+    print("Execution time: " + str(round(end - start, 2)) + " s")
 
 if __name__ == '__main__':
     main()
