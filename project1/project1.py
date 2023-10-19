@@ -6,6 +6,7 @@ import numpy as np
 import csv
 import time
 import random
+import math
 from tqdm import tqdm
 from scipy.special import gammaln
 
@@ -151,9 +152,10 @@ def K2fit(method, vars, D):
     return G
 
 class LocalDirectedGraphSearch:
-    def __init__(self, G=None, k_max=None):
+    def __init__(self, G=None, k_max=None, SimulatedAnnealing=False):
         self.G = G
         self.k_max = k_max
+        self.SimulatedAnnealing = SimulatedAnnealing
 
 def rand_graph_neighbor(G):
     n = G.number_of_nodes()
@@ -176,6 +178,34 @@ def LocalSearch_fit(method, vars, D):
             if y_prime > y:
                 y, G = y_prime, G_prime
     return G
+
+
+import math
+
+def LocalSearchSimulatedAnnealing_fit(method, vars, D, initial_temperature, cooling_rate):
+    G = method.G
+    y = bayesian_score(vars, G, D)
+
+    temperature = initial_temperature
+    best_G = G
+    best_y = y
+
+    while temperature > 0.1: 
+        for k in tqdm(range(1, method.k_max + 1), desc="Processing"):
+            G_prime = rand_graph_neighbor(G)
+            if nx.is_directed_acyclic_graph(G_prime):
+                y_prime = bayesian_score(vars, G_prime, D)
+                if y_prime > y or random.random() < math.exp((y_prime - y) / temperature):
+                    y, G = y_prime, G_prime
+
+                    if y > best_y:
+                        best_G, best_y = G, y
+
+        temperature *= cooling_rate
+
+    return best_G
+
+
 
 def findBestG(method, infile, outfile):
 
@@ -231,12 +261,26 @@ def findBestG(method, infile, outfile):
         method.G = pre_G
         method.k_max = int(input("Enter the number of iterations for each local node, i.e k_max: "))
 
-        print("\nFinding the best graph...\n")
-        start = time.time()
-        test_G = LocalSearch_fit(method, vars, D)
-        end = time.time()
-        print("Algorithm completed!\n")
-        print("Execution time: " + str(round(end - start, 2)) + " s")
+        # LocalSearch with Simulated Annealing algorithm method
+        if method.SimulatedAnnealing:
+            initial_temperature = float(input("Enter the initial temperature: "))
+            cooling_rate = float(input("Enter the cooling rate: "))
+            print("\nFinding the best graph...\n")
+            start = time.time()
+            test_G = LocalSearchSimulatedAnnealing_fit(method, vars, D, initial_temperature, cooling_rate)
+            end = time.time()
+            print("Algorithm completed!\n")
+            print("Execution time: " + str(round(end - start, 2)) + " s")
+        
+        # LocalSearch method
+        else:
+            print("\nFinding the best graph...\n")
+            start = time.time()
+            test_G = LocalSearch_fit(method, vars, D)
+            end = time.time()
+            print("Algorithm completed!\n")
+            print("Execution time: " + str(round(end - start, 2)) + " s")
+
 
     # write the best graph to .gph outfile
     write_gph(test_G, idx2names, outfile)
@@ -265,7 +309,11 @@ def main():
 
     # using localsearch algorithm
 
-    findBestG(LocalDirectedGraphSearch(), inputfilename, outputfilename)
+    # findBestG(LocalDirectedGraphSearch(), inputfilename, outputfilename)
+    # print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
+
+    # using localsearch with simulated annealing algorithm
+    findBestG(LocalDirectedGraphSearch(SimulatedAnnealing=True), inputfilename, outputfilename)
     print("The Bayesian score of the given structure and data is: " + str(compute(inputfilename, outputfilename)))
 
 
